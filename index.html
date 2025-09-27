@@ -2,7 +2,11 @@
 <html>
 
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        button {
+            height: 30px;
+        }
         img {
             width: 100%;
             max-width: 500px;
@@ -13,6 +17,12 @@
         }
         p {
             display: inline
+        }
+        @media screen and (max-width: 768px) {
+            img {
+                width: 100%;
+                height: auto;
+        }
         }
     </style>
 </head>
