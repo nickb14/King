@@ -1,13 +1,60 @@
+<!DOCTYPE html>
 <html>
+
 <head>
     <style>
         img {
-            max-width: 100%;
+            width: 100%;
+            max-width: 500px;
             height: auto;
+        }
+        h4 {
+            display: inline
+        }
+        p {
+            display: inline
         }
     </style>
 </head>
+
 <body>
-    <img src="nimbus.jpg" alt="Mud">
+
+    <h4 id="header"></h4>
+    <br>
+
+    <button onclick="reroll()">REROLL</button>
+    <br>
+
+    <img id="image" alt="random image">
+    <br>
+
+    <p>Shoutout Nitya for the majority of these photos</p>
+
+    <script>
+        let options = [
+            ["Congrats! You got a Daisy!", "images/daisy.jpg"],
+            ["Congrats! You got a Ella!", "images/ella.jpg"],
+            ["Congrats! You got a Ethan!", "images/ethan.jpg"],
+            ["Congrats! You got a Mallory!", "images/mallory.jpg"],
+            ["Congrats! You got a Maya!", "images/maya.jpg"],
+            ["Congrats! You got a Mud!", "images/mud.jpg"],
+            ["Congrats! You got a Nandini!", "images/nandini.jpg"],
+            ["Congrats! You got a Nathan!", "images/nathan.jpg"],
+            ["Congrats! You got a Nimbus!", "images/nimbus.jpg"],
+            ["Congrats! You got a Nitya!", "images/nitya.jpg"],
+            ["Congrats! You got a Quinten!", "images/quinten.jpg"],
+            ["Congrats! You got a Rusty!", "images/rusty.jpg"],
+            ["Congrats! You got a Sammy!", "images/sammy.jpg"],
+        ]
+
+        function reroll() {
+            let i = Math.floor(Math.random() * options.length)
+            document.getElementById("header").innerText = options[i][0];
+            document.getElementById("image").src = options[i][1];
+        }
+        reroll()
+    </script>
+
 </body>
+
 </html>
