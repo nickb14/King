@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BS SMP Overworld Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0b1210;
+      --panel: #121c18;
+      --panel-edge: #24352c;
+      --moss: #3d6b52;
+      --moss-bright: #6db58a;
+      --lantern: #e4a84b;
+      --lantern-soft: #f0c77a;
+      --fog: #9bb5a6;
+      --text: #e8f0ea;
+      --muted: #7a9486;
+      --danger: #d46a6a;
+      --grid: rgba(109, 181, 138, 0.08);
+      --grid-strong: rgba(109, 181, 138, 0.16);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: "Outfit", system-ui, sans-serif;
+      color: var(--text);
+      background: var(--ink);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) 1fr;
+      height: 100%;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1.25rem;
+      background:
+        radial-gradient(ellipse 80% 50% at 0% 0%, rgba(61, 107, 82, 0.25), transparent 60%),
+        linear-gradient(180deg, #101915 0%, var(--panel) 100%);
+      border-right: 1px solid var(--panel-edge);
+      z-index: 2;
+      overflow: hidden;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .brand h1 {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    .brand p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+
+    .search {
+      position: relative;
+    }
+
+    .search input {
+      width: 100%;
+      padding: 0.7rem 0.85rem;
+      border: 1px solid var(--panel-edge);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .search input:focus {
+      border-color: var(--moss);
+      box-shadow: 0 0 0 3px rgba(61, 107, 82, 0.35);
+    }
+
+    .search input::placeholder { color: var(--muted); }
+
+    .list {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding-right: 0.15rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--panel-edge) transparent;
+    }
+
+    .loc {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.15rem 0.5rem;
+      width: 100%;
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+
+    .loc:hover, .loc.active {
+      background: rgba(61, 107, 82, 0.18);
+      border-color: var(--panel-edge);
+    }
+
+    .loc.active {
+      border-color: var(--moss);
+      background: rgba(61, 107, 82, 0.28);
+    }
+
+    .loc-name {
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    .loc-coords {
+      grid-column: 1;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      color: var(--fog);
+    }
+
+    .loc-del {
+      grid-row: 1 / span 2;
+      align-self: center;
+      opacity: 0;
+      border: none;
+      background: transparent;
+      color: var(--danger);
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0.2rem 0.35rem;
+      border-radius: 6px;
+      transition: opacity 0.12s, background 0.12s;
+    }
+
+    .loc:hover .loc-del, .loc:focus-within .loc-del { opacity: 1; }
+    .loc-del:hover { background: rgba(212, 106, 106, 0.15); }
+
+    .empty {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.75rem;
+    }
+
+    .add-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--panel-edge);
+    }
+
+    .add-panel h2 {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .hint mark {
+      background: transparent;
+      color: var(--lantern-soft);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+    }
+
+    .fields .name { grid-column: 1 / -1; }
+
+    .fields input {
+      width: 100%;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--panel-edge);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.35);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .fields input:focus {
+      border-color: var(--moss);
+    }
+
+    .fields input.name {
+      font-family: inherit;
+    }
+
+    .fields input.coord {
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 0.45rem;
+    }
+
+    button.primary, button.ghost {
+      flex: 1;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.12s, border-color 0.12s;
+    }
+
+    button.primary {
+      border: 1px solid #8bc49f;
+      background: linear-gradient(180deg, #4f8a67, #3a6b50);
+      color: #f3faf5;
+    }
+
+    button.primary:hover { filter: brightness(1.08); }
+    button.primary:active { transform: scale(0.98); }
+
+    button.ghost {
+      border: 1px solid var(--panel-edge);
+      background: transparent;
+      color: var(--fog);
+    }
+
+    button.ghost:hover {
+      border-color: var(--moss);
+      color: var(--text);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .toolbar button {
+      flex: 1;
+      padding: 0.45rem;
+      font-size: 0.78rem;
+    }
+
+    .stage {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 70% 60% at 50% 40%, #15241c 0%, var(--ink) 70%),
+        var(--ink);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .stage.dragging { cursor: grabbing; }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hud {
+      position: absolute;
+      left: 1rem;
+      bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      pointer-events: none;
+    }
+
+    .hud-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.7rem;
+      border-radius: 8px;
+      border: 1px solid var(--panel-edge);
+      background: rgba(11, 18, 16, 0.82);
+      backdrop-filter: blur(8px);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.8rem;
+      color: var(--fog);
+      width: fit-content;
+    }
+
+    .hud-chip strong {
+      color: var(--lantern-soft);
+      font-weight: 500;
+    }
+
+    .zoom-controls {
+      position: absolute;
+      right: 1rem;
+      bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .zoom-controls button {
+      width: 2.4rem;
+      height: 2.4rem;
+      border-radius: 10px;
+      border: 1px solid var(--panel-edge);
+      background: rgba(11, 18, 16, 0.85);
+      color: var(--text);
+      font-size: 1.15rem;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.12s, background 0.12s;
+    }
+
+    .zoom-controls button:hover {
+      border-color: var(--moss);
+      background: rgba(24, 40, 32, 0.95);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      padding: 1rem;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      width: min(640px, 100%);
+      max-height: min(80vh, 720px);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding: 1.15rem;
+      border-radius: 14px;
+      border: 1px solid var(--panel-edge);
+      background: var(--panel);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    .modal header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+    }
+
+    .modal h2 {
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .modal p {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .modal textarea {
+      flex: 1;
+      min-height: 280px;
+      resize: vertical;
+      padding: 0.85rem;
+      border-radius: 10px;
+      border: 1px solid var(--panel-edge);
+      background: #0a100e;
+      color: var(--text);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      outline: none;
+    }
+
+    .modal textarea:focus { border-color: var(--moss); }
+
+    .modal-error {
+      color: var(--danger);
+      font-size: 0.85rem;
+      min-height: 1.2em;
+    }
+
+    .toast {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(-120%);
+      padding: 0.65rem 1rem;
+      border-radius: 999px;
+      border: 1px solid var(--panel-edge);
+      background: rgba(18, 28, 24, 0.95);
+      color: var(--text);
+      font-size: 0.88rem;
+      z-index: 30;
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 800px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 42vh 1fr;
+      }
+
+      .sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--panel-edge);
+        order: 2;
+      }
+
+      .stage { order: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>BS SMP Overworld Map</h1>
+        <p>Shared live map — when you add a pin, everyone else sees it too.</p>
+        <p class="hint" id="syncStatus" style="margin-top:0.15rem">Connecting to cloud…</p>
+      </div>
+
+      <div class="search">
+        <input id="search" type="search" placeholder="Search locations…" autocomplete="off" />
+      </div>
+
+      <div class="list" id="list"></div>
+
+      <div class="add-panel">
+        <h2>Add location</h2>
+        <p class="hint">Click the map to fill coords, or type them. Currently: <mark id="pending">—</mark></p>
+        <div class="fields">
+          <input class="name" id="name" type="text" placeholder="Name (e.g. cherry grove)" />
+          <input class="coord" id="x" type="number" step="1" placeholder="X" />
+          <input class="coord" id="z" type="number" step="1" placeholder="Z" />
+        </div>
+        <div class="row-actions">
+          <button class="primary" id="addBtn" type="button">Add</button>
+          <button class="ghost" id="clearBtn" type="button">Clear</button>
+        </div>
+        <div class="toolbar">
+          <button class="ghost" id="fitBtn" type="button">Fit all</button>
+          <button class="ghost" id="jsonBtn" type="button">Edit JSON</button>
+          <button class="ghost" id="exportBtn" type="button">Copy JSON</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="stage" id="stage">
+      <canvas id="canvas"></canvas>
+      <div class="hud">
+        <div class="hud-chip">cursor <strong id="cursor">—</strong></div>
+        <div class="hud-chip">zoom <strong id="zoomLabel">1.0×</strong></div>
+      </div>
+      <div class="zoom-controls">
+        <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+        <button type="button" id="zoomOut" aria-label="Zoom out">−</button>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <header>
+        <div>
+          <h2>Locations JSON</h2>
+          <p>Array of <code>{ "name", "x", "z" }</code>. Save to apply.</p>
+        </div>
+      </header>
+      <textarea id="jsonEditor" spellcheck="false"></textarea>
+      <div class="modal-error" id="jsonError"></div>
+      <div class="row-actions">
+        <button class="primary" id="saveJson" type="button">Save</button>
+        <button class="ghost" id="closeJson" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAgdiIcF3lTSX4OJEirHrub94g_4jzWMdo",
+      authDomain: "bs-smp-map.firebaseapp.com",
+      databaseURL: "https://bs-smp-map-default-rtdb.firebaseio.com",
+      projectId: "bs-smp-map",
+      storageBucket: "bs-smp-map.firebasestorage.app",
+      messagingSenderId: "306330059932",
+      appId: "1:306330059932:web:ab2b2e6728d44dd634d959",
+    };
+
+    const STORAGE_KEY = "world-map-locations-v2";
+    const DB_PATH = "locations";
+
+    const DEFAULT_LOCATIONS = [
+      { name: "home", x: 0, z: 0 },
+      { name: "jagged peaks", x: -2500, z: -1100 },
+      { name: "cherry grove", x: -3300, z: 1800 },
+      { name: "taiga (village)", x: -1500, z: -1400 },
+      { name: "mushroom fields", x: -600, z: -700 },
+      { name: "windswept hills", x: 1700, z: -1600 },
+      { name: "plains", x: 2400, z: -1700 },
+      { name: "meadow", x: 2900, z: -1500 },
+      { name: "windswept gravelly hills", x: 1200, z: -400 },
+
+      { name: "old growth spruce taiga", x: 2100, z: -600 },
+      { name: "lush caves (entrance above ground)", x: 2266, z: -763 },
+      { name: "snowy plains", x: 2400, z: -1000 },
+      { name: "ice spikes", x: 2700, z: -1100 },
+      { name: "frozen ocean", x: 3400, z: -1500 },
+      { name: "deep frozen ocean", x: 2900, z: 0 },
+
+      { name: "old growth birch forest", x: 2100, z: 400 },
+      { name: "dark forest", x: 2200, z: 500 },
+      { name: "woodland mansion", x: 1800, z: 770 },
+      { name: "sunflower plains", x: -1400, z: 500 },
+      { name: "windswept savanna", x: -1600, z: 400 },
+      { name: "flower forest", x: -2000, z: 300 },
+      { name: "plains (nice looking ravine imo)", x: -2500, z: 250 },
+
+      { name: "forest (random ghast)", x: -3010, z: 230 },
+      { name: "savanna", x: -3400, z: 200 },
+      { name: "meadow", x: -3900, z: 0 },
+      { name: "jagged peaks", x: -4000, z: -200 },
+      { name: "snowy slopes", x: -3800, z: -300 },
+      { name: "stony shore", x: -3650, z: -480 },
+      { name: "grove", x: -3700, z: -550 },
+
+      { name: "windswept forest", x: 150, z: 350 },
+      { name: "old growth pine taiga", x: 250, z: 1800 },
+      { name: "lush caves (azalea here)", x: 233, z: 1830 },
+      { name: "dark forest", x: 300, z: 2400 },
+      { name: "woodland mansion", x: 175, z: 2815 },
+      { name: "frozen ocean", x: -700, z: 2900 },
+      { name: "snowy taiga", x: -1000, z: 2450 },
+      { name: "meadow", x: -2300, z: 1400 },
+
+      { name: "cherry grove", x: -2800, z: 1700 },
+      { name: "sunflower plains", x: -2700, z: 1750 },
+      { name: "plains (definitely not Nathan's village)", x: -1900, z: 900 },
+      { name: "windswept savanna (definitely not Sammy's lair)", x: 230, z: -1890 },
+      { name: "sparse jungle", x: -50, z: -2400 },
+      { name: "jungle", x: -50, z: -2300 },
+
+      { name: "bamboo jungle", x: -100, z: -2500 },
+      { name: "desert", x: -100, z: -2900 },
+      { name: "eroded badlands", x: -300, z: -3150 },
+      { name: "wooded badlands", x: -200, z: -3450 },
+      { name: "badlands", x: -100, z: -3200 },
+      { name: "mangrove swamp", x: 300, z: -3000 },
+      { name: "dripstone caves", x: 400, z: -3100 },
+      { name: "swamp", x: 1500, z: -2800 },
+
+      { name: "guardian farm", x: -352, z: -352 },
+      { name: "gunpowder farm", x: -1481, z: 818 },
+      { name: "Ella's house", x: 83, z: 140 },
+      { name: "community house", x: 9, z: -23 },
+      { name: "Quinten's statues", x: 108, z: -72 },
+      { name: "Maya's house", x: -7, z: -143 },
+      { name: "Mallory's house", x: 86, z: -117 },
+      { name: "USAID", x: 30, z: -41 },
+      { name: "Nicholas's storage", x: 51, z: -73 },
+      { name: "Mallory's library", x: 16, z: -111 },
+      { name: "Nicholas's hell", x: 1, z: -119 },
+
+      { name: "spider farm", x: -282, z: -3118 },
+      { name: "ancient city", x: -3900, z: -170 },
+      { name: "ancient city", x: 3900, z: -3500 },
+
+      { name: "snowy plains (interesting looking mine caves)", x: 3830, z: -5330 },
+      { name: "deep dark", x: -2600, z: -1100 },
+      { name: "meadow", x: -2200, z: 850 },
+      { name: "trial chamber (entrance above ground)", x: -1957, z: 702 },
+      { name: "warm ocean (huge)", x: -700, z: -3600 },
+      { name: "pale garden", x: 820, z: 2630 },
+      { name: "ocean monument", x: -1030, z: -350 },
+      { name: "dripstone caves", x: 130, z: 520 },
+      { name: "lush caves (azalea here)", x: 91, z: 431 },
+      { name: "dripstone caves", x: -3000, z: 500 },
+      { name: "stronghold (end portal here)", x: 469, z: -1673 },
+    ];
+
+    const stage = document.getElementById("stage");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const els = {
+      list: document.getElementById("list"),
+      search: document.getElementById("search"),
+      name: document.getElementById("name"),
+      x: document.getElementById("x"),
+      z: document.getElementById("z"),
+      pending: document.getElementById("pending"),
+      cursor: document.getElementById("cursor"),
+      zoomLabel: document.getElementById("zoomLabel"),
+      addBtn: document.getElementById("addBtn"),
+      clearBtn: document.getElementById("clearBtn"),
+      fitBtn: document.getElementById("fitBtn"),
+      jsonBtn: document.getElementById("jsonBtn"),
+      exportBtn: document.getElementById("exportBtn"),
+      modal: document.getElementById("modal"),
+      jsonEditor: document.getElementById("jsonEditor"),
+      jsonError: document.getElementById("jsonError"),
+      saveJson: document.getElementById("saveJson"),
+      closeJson: document.getElementById("closeJson"),
+      zoomIn: document.getElementById("zoomIn"),
+      zoomOut: document.getElementById("zoomOut"),
+      toast: document.getElementById("toast"),
+      syncStatus: document.getElementById("syncStatus"),
+    };
+
+    let locations = loadLocalLocations();
+    let selectedId = null;
+    let hoverId = null;
+    let query = "";
+    let applyingRemote = false;
+    let hasSeededEmpty = false;
+    let locationsRef = null;
+    let persistTimer = null;
+
+    // Camera: screen = (world - cam) * scale + center
+    const cam = { x: 0, z: 0, scale: 0.12 };
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let width = 0;
+    let height = 0;
+
+    let dragging = false;
+    let dragMoved = false;
+    let lastPointer = null;
+    let toastTimer = null;
+
+    function uid() {
+      return Math.random().toString(36).slice(2, 10);
+    }
+
+    function normalize(raw) {
+      return raw.map((item) => ({
+        id: item.id || uid(),
+        name: String(item.name ?? "").trim(),
+        x: Number(item.x),
+        z: Number(item.z ?? item.y),
+      })).filter((item) => item.name && Number.isFinite(item.x) && Number.isFinite(item.z));
+    }
+
+    function ensureHome(list) {
+      if (list.some(isHome)) return list;
+      return [{ id: uid(), name: "home", x: 0, z: 0 }, ...list];
+    }
+
+    function toPayload(list) {
+      return list.map(({ id, name, x, z }) => ({ id, name, x, z }));
+    }
+
+    function loadLocalLocations() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length) return ensureHome(normalize(parsed));
+        }
+      } catch (_) {}
+      return ensureHome(normalize(DEFAULT_LOCATIONS));
+    }
+
+    function cacheLocal(list) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toPayload(list)));
+    }
+
+    function setSyncStatus(text) {
+      if (els.syncStatus) els.syncStatus.textContent = text;
+    }
+
+    function applyLocations(list, { fit = false } = {}) {
+      locations = ensureHome(normalize(list));
+      if (selectedId && !locations.some((l) => l.id === selectedId)) selectedId = null;
+      cacheLocal(locations);
+      renderList();
+      if (fit) fitAll();
+      else draw();
+    }
+
+    function persist() {
+      cacheLocal(locations);
+      if (!locationsRef || applyingRemote) return;
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        set(locationsRef, toPayload(locations))
+          .then(() => setSyncStatus("Cloud · synced"))
+          .catch((err) => {
+            console.error(err);
+            setSyncStatus("Cloud · write failed");
+            toast("Couldn't sync to cloud");
+          });
+      }, 150);
+    }
+
+    function initFirebase() {
+      try {
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        locationsRef = ref(db, DB_PATH);
+
+        onValue(
+          locationsRef,
+          (snapshot) => {
+            const val = snapshot.val();
+            if (val == null || (Array.isArray(val) && val.length === 0) ||
+                (typeof val === "object" && !Array.isArray(val) && Object.keys(val).length === 0)) {
+              if (!hasSeededEmpty) {
+                hasSeededEmpty = true;
+                const seed = ensureHome(normalize(DEFAULT_LOCATIONS));
+                setSyncStatus("Cloud · seeding…");
+                set(locationsRef, toPayload(seed)).catch((err) => {
+                  console.error(err);
+                  setSyncStatus("Cloud · seed failed (check rules)");
+                  toast("Couldn't seed cloud database");
+                });
+              }
+              return;
+            }
+
+            const arr = Array.isArray(val) ? val : Object.values(val);
+            applyingRemote = true;
+            applyLocations(arr);
+            applyingRemote = false;
+            setSyncStatus("Cloud · live");
+          },
+          (err) => {
+            console.error(err);
+            setSyncStatus("Cloud · offline (using local cache)");
+            toast("Cloud unavailable — using local data");
+          }
+        );
+      } catch (err) {
+        console.error(err);
+        setSyncStatus("Cloud · unavailable");
+      }
+    }
+
+    function toast(msg) {
+      els.toast.textContent = msg;
+      els.toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => els.toast.classList.remove("show"), 1800);
+    }
+
+    function isHome(loc) {
+      return loc.name.toLowerCase() === "home";
+    }
+
+    function filtered() {
+      const q = query.trim().toLowerCase();
+      if (!q) return locations;
+      return locations.filter((loc) => loc.name.toLowerCase().includes(q));
+    }
+
+    function renderList() {
+      const items = filtered();
+      els.list.innerHTML = "";
+
+      if (!items.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = query ? "No matches." : "No locations yet — add one below.";
+        els.list.appendChild(empty);
+        return;
+      }
+
+      for (const loc of items) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "loc" + (loc.id === selectedId ? " active" : "");
+        btn.dataset.id = loc.id;
+        btn.innerHTML = `
+          <span class="loc-name"></span>
+          ${isHome(loc) ? "" : `<button class="loc-del" type="button" title="Delete" aria-label="Delete">×</button>`}
+          <span class="loc-coords"></span>
+        `;
+        btn.querySelector(".loc-name").textContent = loc.name;
+        btn.querySelector(".loc-coords").textContent = `${loc.x}, ${loc.z}`;
+
+        btn.addEventListener("click", () => {
+          selectedId = loc.id;
+          focusLocation(loc);
+          renderList();
+          draw();
+        });
+
+        const del = btn.querySelector(".loc-del");
+        if (del) {
+          del.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (isHome(loc)) return;
+            if (!confirm(`Are you sure you want to delete "${loc.name}"?`)) return;
+            locations = locations.filter((l) => l.id !== loc.id);
+            if (selectedId === loc.id) selectedId = null;
+            persist();
+            renderList();
+            draw();
+            toast("Deleted");
+          });
+        }
+
+        els.list.appendChild(btn);
+      }
+    }
+
+    function scrollSelectedIntoView() {
+      if (!selectedId) return;
+      const el = els.list.querySelector(`.loc[data-id="${selectedId}"]`);
+      if (!el) return;
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
+    function updatePending() {
+      const x = els.x.value;
+      const z = els.z.value;
+      els.pending.textContent = x !== "" && z !== "" ? `(${x}, ${z})` : "—";
+    }
+
+    function worldToScreen(x, z) {
+      return {
+        x: (x - cam.x) * cam.scale + width / 2,
+        y: (z - cam.z) * cam.scale + height / 2,
+      };
+    }
+
+    function screenToWorld(sx, sy) {
+      return {
+        x: (sx - width / 2) / cam.scale + cam.x,
+        z: (sy - height / 2) / cam.scale + cam.z,
+      };
+    }
+
+    function fitAll(padding = 0.18) {
+      if (!locations.length) {
+        cam.x = 0;
+        cam.z = 0;
+        cam.scale = 0.2;
+        updateZoomLabel();
+        draw();
+        return;
+      }
+
+      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      for (const loc of locations) {
+        minX = Math.min(minX, loc.x);
+        maxX = Math.max(maxX, loc.x);
+        minZ = Math.min(minZ, loc.z);
+        maxZ = Math.max(maxZ, loc.z);
+      }
+
+      const spanX = Math.max(maxX - minX, 400);
+      const spanZ = Math.max(maxZ - minZ, 400);
+      cam.x = (minX + maxX) / 2;
+      cam.z = (minZ + maxZ) / 2;
+      const sx = (width * (1 - padding)) / spanX;
+      const sz = (height * (1 - padding)) / spanZ;
+      cam.scale = Math.min(sx, sz, 2);
+      updateZoomLabel();
+      draw();
+    }
+
+    function focusLocation(loc) {
+      cam.x = loc.x;
+      cam.z = loc.z;
+      cam.scale = Math.max(cam.scale, 0.35);
+      updateZoomLabel();
+      draw();
+    }
+
+    function updateZoomLabel() {
+      els.zoomLabel.textContent = `${(cam.scale * 10).toFixed(1)}×`;
+    }
+
+    function niceStep(raw) {
+      const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+      const n = raw / pow;
+      let step;
+      if (n < 1.5) step = 1;
+      else if (n < 3.5) step = 2;
+      else if (n < 7.5) step = 5;
+      else step = 10;
+      return step * pow;
+    }
+
+    function hitTest(sx, sy) {
+      const threshold = 14;
+      let best = null;
+      let bestDist = threshold;
+      for (const loc of locations) {
+        const p = worldToScreen(loc.x, loc.z);
+        const d = Math.hypot(p.x - sx, p.y - sy);
+        if (d < bestDist) {
+          bestDist = d;
+          best = loc;
+        }
+      }
+      return best;
+    }
+
+    function resize() {
+      const rect = stage.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+
+      // Atmosphere wash
+      const wash = ctx.createRadialGradient(width * 0.5, height * 0.42, 40, width * 0.5, height * 0.5, Math.max(width, height) * 0.7);
+      wash.addColorStop(0, "rgba(42, 78, 58, 0.35)");
+      wash.addColorStop(1, "rgba(11, 18, 16, 0)");
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, 0, width, height);
+
+      drawGrid();
+      drawAxes();
+      drawLinks();
+      drawMarkers();
+    }
+
+    function drawGrid() {
+      const topLeft = screenToWorld(0, 0);
+      const bottomRight = screenToWorld(width, height);
+      const step = niceStep(120 / cam.scale);
+
+      ctx.save();
+      ctx.lineWidth = 1;
+
+      const startX = Math.floor(topLeft.x / step) * step;
+      const startZ = Math.floor(topLeft.z / step) * step;
+
+      for (let x = startX; x <= bottomRight.x; x += step) {
+        const p = worldToScreen(x, 0);
+        const major = Math.abs(x) < 0.001 || Math.abs(x / (step * 5) - Math.round(x / (step * 5))) < 1e-6;
+        ctx.strokeStyle = major ? "rgba(109, 181, 138, 0.16)" : "rgba(109, 181, 138, 0.07)";
+        ctx.beginPath();
+        ctx.moveTo(p.x, 0);
+        ctx.lineTo(p.x, height);
+        ctx.stroke();
+      }
+
+      for (let z = startZ; z <= bottomRight.z; z += step) {
+        const p = worldToScreen(0, z);
+        const major = Math.abs(z) < 0.001 || Math.abs(z / (step * 5) - Math.round(z / (step * 5))) < 1e-6;
+        ctx.strokeStyle = major ? "rgba(109, 181, 138, 0.16)" : "rgba(109, 181, 138, 0.07)";
+        ctx.beginPath();
+        ctx.moveTo(0, p.y);
+        ctx.lineTo(width, p.y);
+        ctx.stroke();
+      }
+
+      // Axis labels along edges
+      ctx.fillStyle = "rgba(155, 181, 166, 0.55)";
+      ctx.font = "11px 'IBM Plex Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      for (let x = startX; x <= bottomRight.x; x += step) {
+        if (Math.abs(x) < step * 0.01 && step > 1) continue;
+        const p = worldToScreen(x, 0);
+        if (p.x < 24 || p.x > width - 24) continue;
+        ctx.fillText(String(Math.round(x)), p.x, 8);
+      }
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      for (let z = startZ; z <= bottomRight.z; z += step) {
+        if (Math.abs(z) < step * 0.01 && step > 1) continue;
+        const p = worldToScreen(0, z);
+        if (p.y < 24 || p.y > height - 24) continue;
+        ctx.fillText(String(Math.round(z)), 8, p.y);
+      }
+
+      ctx.restore();
+    }
+
+    function drawAxes() {
+      const origin = worldToScreen(0, 0);
+      ctx.save();
+      ctx.strokeStyle = "rgba(228, 168, 75, 0.35)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, origin.y);
+      ctx.lineTo(width, origin.y);
+      ctx.moveTo(origin.x, 0);
+      ctx.lineTo(origin.x, height);
+      ctx.stroke();
+
+      // Origin bead
+      ctx.fillStyle = "#e4a84b";
+      ctx.beginPath();
+      ctx.arc(origin.x, origin.y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawLinks() {
+      if (locations.length < 2) return;
+      const home = locations.find(isHome) || locations[0];
+      ctx.save();
+      ctx.strokeStyle = "rgba(109, 181, 138, 0.18)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      for (const loc of locations) {
+        if (loc.id === home.id) continue;
+        const a = worldToScreen(home.x, home.z);
+        const b = worldToScreen(loc.x, loc.z);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawMarkers() {
+      const showLabels = cam.scale >= 0.08;
+      const q = query.trim().toLowerCase();
+
+      for (const loc of locations) {
+        const matches = !q || loc.name.toLowerCase().includes(q);
+        const p = worldToScreen(loc.x, loc.z);
+        const selected = loc.id === selectedId;
+        const hovered = loc.id === hoverId;
+        const r = selected || hovered ? 7 : 5;
+
+        ctx.save();
+        ctx.globalAlpha = matches ? 1 : 0.22;
+
+        // Glow
+        if (selected || hovered) {
+          const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 22);
+          glow.addColorStop(0, "rgba(228, 168, 75, 0.45)");
+          glow.addColorStop(1, "rgba(228, 168, 75, 0)");
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r + 2, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(11, 18, 16, 0.85)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = selected || hovered ? "#f0c77a" : "#6db58a";
+        ctx.fill();
+
+        if (showLabels && matches) {
+          ctx.font = `${selected ? 600 : 500} 12px Outfit, system-ui, sans-serif`;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          const label = loc.name;
+          const tx = p.x + r + 8;
+          const ty = p.y;
+          const metrics = ctx.measureText(label);
+          const padX = 7;
+          const padY = 5;
+          const bw = metrics.width + padX * 2;
+          const bh = 20;
+
+          ctx.fillStyle = "rgba(11, 18, 16, 0.78)";
+          roundRect(ctx, tx - padX + 7, ty - bh / 2, bw, bh, 6);
+          ctx.fill();
+
+          ctx.fillStyle = selected || hovered ? "#f6e2b5" : "#e8f0ea";
+          ctx.fillText(label, tx + 7, ty);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function roundRect(c, x, y, w, h, r) {
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.arcTo(x + w, y, x + w, y + h, r);
+      c.arcTo(x + w, y + h, x, y + h, r);
+      c.arcTo(x, y + h, x, y, r);
+      c.arcTo(x, y, x + w, y, r);
+      c.closePath();
+    }
+
+    function pointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function setCursorReadout(world) {
+      els.cursor.textContent = `${Math.round(world.x)}, ${Math.round(world.z)}`;
+    }
+
+    stage.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      stage.setPointerCapture(e.pointerId);
+      dragging = true;
+      dragMoved = false;
+      lastPointer = pointerPos(e);
+      stage.classList.add("dragging");
+    });
+
+    stage.addEventListener("pointermove", (e) => {
+      const pos = pointerPos(e);
+      const world = screenToWorld(pos.x, pos.y);
+      setCursorReadout(world);
+
+      const hit = hitTest(pos.x, pos.y);
+      const nextHover = hit ? hit.id : null;
+      if (nextHover !== hoverId) {
+        hoverId = nextHover;
+        draw();
+      }
+
+      if (!dragging || !lastPointer) return;
+      const dx = pos.x - lastPointer.x;
+      const dy = pos.y - lastPointer.y;
+      if (Math.hypot(dx, dy) > 3) dragMoved = true;
+      cam.x -= dx / cam.scale;
+      cam.z -= dy / cam.scale;
+      lastPointer = pos;
+      draw();
+    });
+
+    stage.addEventListener("pointerup", (e) => {
+      if (!dragging) return;
+      stage.releasePointerCapture(e.pointerId);
+      stage.classList.remove("dragging");
+      dragging = false;
+
+      if (!dragMoved) {
+        const pos = pointerPos(e);
+        const hit = hitTest(pos.x, pos.y);
+        if (hit) {
+          selectedId = hit.id;
+          els.name.value = hit.name;
+          els.x.value = hit.x;
+          els.z.value = hit.z;
+          updatePending();
+          if (query && !hit.name.toLowerCase().includes(query.trim().toLowerCase())) {
+            query = "";
+            els.search.value = "";
+          }
+          renderList();
+          scrollSelectedIntoView();
+          draw();
+        } else {
+          const world = screenToWorld(pos.x, pos.y);
+          const x = Math.round(world.x);
+          const z = Math.round(world.z);
+          els.x.value = x;
+          els.z.value = z;
+          updatePending();
+          els.name.focus();
+          toast(`Coords set to ${x}, ${z}`);
+        }
+      }
+      lastPointer = null;
+    });
+
+    stage.addEventListener("pointerleave", () => {
+      els.cursor.textContent = "—";
+      if (hoverId) {
+        hoverId = null;
+        draw();
+      }
+    });
+
+    stage.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const pos = pointerPos(e);
+      const before = screenToWorld(pos.x, pos.y);
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      cam.scale = Math.min(4, Math.max(0.02, cam.scale * factor));
+      const after = screenToWorld(pos.x, pos.y);
+      cam.x += before.x - after.x;
+      cam.z += before.z - after.z;
+      updateZoomLabel();
+      draw();
+    }, { passive: false });
+
+    function zoomBy(factor) {
+      cam.scale = Math.min(4, Math.max(0.02, cam.scale * factor));
+      updateZoomLabel();
+      draw();
+    }
+
+    els.zoomIn.addEventListener("click", () => zoomBy(1.25));
+    els.zoomOut.addEventListener("click", () => zoomBy(1 / 1.25));
+
+    els.search.addEventListener("input", () => {
+      query = els.search.value;
+      renderList();
+      draw();
+    });
+
+    els.x.addEventListener("input", updatePending);
+    els.z.addEventListener("input", updatePending);
+
+    function addLocation() {
+      const name = els.name.value.trim();
+      const x = Number(els.x.value);
+      const z = Number(els.z.value);
+      if (!name) {
+        els.name.focus();
+        toast("Name required");
+        return;
+      }
+      if (!Number.isFinite(x) || !Number.isFinite(z)) {
+        toast("Need valid X and Z");
+        return;
+      }
+
+      const existing = locations.find((l) => l.id === selectedId && l.name === name);
+      if (existing) {
+        existing.x = x;
+        existing.z = z;
+        persist();
+        renderList();
+        focusLocation(existing);
+        toast("Updated");
+        return;
+      }
+
+      const loc = { id: uid(), name, x, z };
+      locations.push(loc);
+      selectedId = loc.id;
+      persist();
+      renderList();
+      focusLocation(loc);
+      els.name.value = "";
+      toast("Added");
+    }
+
+    els.addBtn.addEventListener("click", addLocation);
+    els.name.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addLocation();
+    });
+
+    els.clearBtn.addEventListener("click", () => {
+      els.name.value = "";
+      els.x.value = "";
+      els.z.value = "";
+      selectedId = null;
+      updatePending();
+      renderList();
+      draw();
+    });
+
+    els.fitBtn.addEventListener("click", () => fitAll());
+
+    els.jsonBtn.addEventListener("click", () => {
+      els.jsonEditor.value = JSON.stringify(
+        locations.map(({ name, x, z }) => ({ name, x, z })),
+        null,
+        2
+      );
+      els.jsonError.textContent = "";
+      els.modal.classList.add("open");
+      els.jsonEditor.focus();
+    });
+
+    els.closeJson.addEventListener("click", () => els.modal.classList.remove("open"));
+    els.modal.addEventListener("click", (e) => {
+      if (e.target === els.modal) els.modal.classList.remove("open");
+    });
+
+    els.saveJson.addEventListener("click", () => {
+      try {
+        const parsed = JSON.parse(els.jsonEditor.value);
+        if (!Array.isArray(parsed)) throw new Error("JSON must be an array");
+        applyLocations(parsed, { fit: true });
+        persist();
+        els.modal.classList.remove("open");
+        toast("JSON saved (syncing…)");
+      } catch (err) {
+        els.jsonError.textContent = err.message || "Invalid JSON";
+      }
+    });
+
+    els.exportBtn.addEventListener("click", async () => {
+      const text = JSON.stringify(
+        locations.map(({ name, x, z }) => ({ name, x, z })),
+        null,
+        2
+      );
+      try {
+        await navigator.clipboard.writeText(text);
+        toast("Copied JSON");
+      } catch (_) {
+        els.jsonEditor.value = text;
+        els.modal.classList.add("open");
+        toast("Opened JSON to copy");
+      }
+    });
+
+    window.addEventListener("resize", resize);
+
+    renderList();
+    updatePending();
+    resize();
+    fitAll();
+    initFirebase();
+  </script>
+</body>
+</html>

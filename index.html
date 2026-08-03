@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>King</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0a0f0d;
+      --panel: rgba(18, 28, 24, 0.55);
+      --edge: #2a3f34;
+      --moss: #5a9a72;
+      --moss-deep: #3d6b52;
+      --lantern: #e4a84b;
+      --text: #eef4ef;
+      --muted: #8aa396;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: "Outfit", system-ui, sans-serif;
+      color: var(--text);
+      background: var(--ink);
+    }
+
+    body {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      overflow: hidden;
+      /* Intentionally stretched — no cover, no contain, just smash to viewport */
+      background-color: var(--ink);
+      background-image: url("UnderwaterMallory.jpg");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 100% 100%;
+    }
+
+    .hero {
+      position: relative;
+      width: min(440px, 100%);
+      text-align: center;
+      animation: rise 0.7s ease both;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(18px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      animation: rise 0.7s ease both;
+    }
+
+    .actions a {
+      display: block;
+      padding: 1rem 1.25rem;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    }
+
+    .actions a:active {
+      transform: scale(0.985);
+    }
+
+    .actions a.primary {
+      color: #1a0520;
+      border: 2px solid #fff1a8;
+      background: linear-gradient(180deg, #ffb020, #ff6a00);
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(255, 106, 0, 0.45);
+    }
+
+    .actions a.primary:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 12px 34px rgba(255, 106, 0, 0.6);
+    }
+
+    .actions a.secondary {
+      color: #fff;
+      border: 2px solid #ff9de8;
+      background: linear-gradient(180deg, #ff4fd8, #c0109a);
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(255, 47, 196, 0.4);
+    }
+
+    .actions a.secondary:hover {
+      filter: brightness(1.1);
+      border-color: #ffd0f4;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 12px 34px rgba(255, 47, 196, 0.55);
+    }
+
+    @media (min-width: 560px) {
+      .actions {
+        flex-direction: row;
+        justify-content: center;
+      }
+
+      .actions a {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="hero">
+    <nav class="actions" aria-label="Site pages">
+      <a class="primary" href="gambling.html">Gambling</a>
+      <a class="secondary" href="map.html">Overworld Map</a>
+    </nav>
+  </main>
+</body>
+</html>
